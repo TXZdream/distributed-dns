@@ -1,0 +1,41 @@
+syntax = "proto3";
+package kademila;
+
+service Kademila {
+    rpc Ping (Empty) returns (Empty);
+    // 找到接收者离请求id更近的K个节点
+    rpc FindNode (FindNodesRequest) returns (FindNodesResponse);
+    // 查询key值
+    rpc FindValue (FindNodesRequest) returns (Node);
+    rpc Store (StoreRequest) returns (Empty);
+}
+
+message Empty {}
+
+message FindNodesRequest {
+    string NodeID = 1;
+}
+
+message FindNodesResponse {
+    repeated Node Nodes = 1;
+}
+
+message Node {
+    string NodeID = 1;
+    // Access 以IP:PORT的方式返回
+    string Access = 2;
+}
+
+message FindValueRequest {
+    string Key = 1;
+}
+
+message FindValueResponse {
+    bool Had = 1;
+    string Value = 2;
+}
+
+message StoreRequest {
+    string Key = 1;
+    string Value = 2;
+}
