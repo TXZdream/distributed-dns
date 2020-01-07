@@ -1,13 +1,14 @@
 package dns
 
-import "github.com/Workiva/go-datastructures/bitarray"
+import (
+	"github.com/willf/bitset"
+	"golang.org/x/crypto/ripemd160"
+)
 
-func toString(id bitarray.BitArray) (string, error) {
+func toString(id *bitset.BitSet) (string, error) {
 	var ret string
-	for i := uint64(0); i < id.Capacity(); i++ {
-		if data, err := id.GetBit(i); err != nil {
-			return "", err
-		} else if data {
+	for i := uint(0); i < id.Len(); i++ {
+		if data := id.Test(i); data {
 			ret += "1"
 		} else {
 			ret += "0"
@@ -16,14 +17,33 @@ func toString(id bitarray.BitArray) (string, error) {
 	return ret, nil
 }
 
-func toBitArr(id string) bitarray.BitArray {
-	ret := bitarray.NewBitArray(uint64(len(id)))
+func toBitArr(id string) *bitset.BitSet {
+	ret := bitset.New(uint(len(id)))
 	for i, v := range id {
 		if v == '0' {
-			ret.ClearBit(uint64(i))
+			ret.Clear(uint(i))
 		} else {
-			ret.SetBit(uint64(i))
+			ret.Set(uint(i))
 		}
 	}
 	return ret
+}
+
+func calculateHash(raw string) (*bitset.BitSet, error) {
+	rim := ripemd160.New()
+	if _, err := rim.Write([]byte(raw)); err != nil {
+		return nil, err
+	}
+	hash := rim.Sum(nil)
+	ret := bitset.New(ripemd160.Size * 8)
+	for i, v := range hash {
+		for j := 0; j < 8; j++ {
+			if bit := (v & (1 << (8 - j - 1))) == 1; bit {
+				ret.Set(uint(i*8 + j))
+			} else {
+				ret.Clear(uint(i*8 + j))
+			}
+		}
+	}
+	return ret, nil
 }
