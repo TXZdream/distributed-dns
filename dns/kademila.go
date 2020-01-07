@@ -15,10 +15,7 @@ func (d DistributeDNS) AddNode(id *bitset.BitSet, data string) error {
 	if err != nil {
 		return err
 	}
-	strID, err := toString(id)
-	if err != nil {
-		return err
-	}
+	strID := toString(id)
 	// 更新accessQueue
 	var remove string
 	if d.accessQueue[lcp].Len() >= int(d.k) {
@@ -144,6 +141,38 @@ func (d DistributeDNS) GetNodes(id string) (map[string]string, error) {
 // Update 定期将自己的key-value对复制到其他的列表上
 // 发出ping请求，将过期节点下线
 func (d DistributeDNS) Update() {
+	// 找到过期节点
+	for _, v := range d.routeTable {
+		for k1, v1 := range v {
+			client, err := dialGrpc(v1)
+			if err != nil {
+				d.DeleteNode(k1)
+			}
+			_, err = client.Ping(context.Background(), &kademila.Empty{})
+			if err != nil {
+				d.DeleteNode(k1)
+			}
+		}
+	}
+	// 将key-value对传播到其他节点
+	for k, v := range d.data {
+		hashKey, _ := calculateHash(k)
+		nodes, _ := d.GetNodesRecursive(toString(hashKey))
+		for _, node := range nodes {
+			client, err := dialGrpc(node)
+			if err != nil {
+				d.DeleteNode(node)
+				continue
+			}
+			_, err = client.Store(context.Background(), &kademila.StoreRequest{
+				Key:   k,
+				Value: v,
+			})
+			if err != nil {
+				d.DeleteNode(node)
+			}
+		}
+	}
 }
 
 // GetDataRecursive 递归查询key所对应的value值
@@ -155,18 +184,12 @@ func (d DistributeDNS) GetDataRecursive(key string) (bool, string, error) {
 	if err != nil {
 		return false, "", err
 	}
-	strHashKey, err := toString(hashKey)
-	if err != nil {
-		return false, "", err
-	}
+	strHashKey := toString(hashKey)
 	nodes, err := d.GetNodesRecursive(strHashKey)
 	if err != nil {
 		return false, "", err
 	}
-	strID, err := toString(d.id)
-	if err != nil {
-		return false, "", err
-	}
+	strID := toString(d.id)
 	// 从nodes中查找key
 	for _, v := range nodes {
 		client, err := dialGrpc(v)
@@ -192,10 +215,8 @@ func (d DistributeDNS) GetNodesRecursive(id string) (map[string]string, error) {
 		return nil, err
 	}
 	isVisited := make(map[string]bool)
-	strID, err := toString(d.id)
-	if err != nil {
-		return nil, err
-	}
+	isVisited[toString(d.id)] = true
+	strID := toString(d.id)
 	for {
 		isChanged := false
 		raw := make(map[string]string)

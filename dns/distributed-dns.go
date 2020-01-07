@@ -2,6 +2,7 @@ package dns
 
 import (
 	"distributed-dns/kademlia"
+	"log"
 	"sync"
 
 	"github.com/Workiva/go-datastructures/queue"
@@ -41,7 +42,14 @@ func Init(k uint16, id *bitset.BitSet, other string) kademlia.Kademlia {
 		distributeDNS.data = make(map[string]string)
 		// 加入已知节点
 		if other != "" {
-
+			nodes, err := distributeDNS.GetNodesRecursive(toString(id))
+			if err != nil {
+				log.Println(err)
+			} else {
+				for k, v := range nodes {
+					distributeDNS.AddNode(toBitArr(k), v)
+				}
+			}
 		}
 	})
 	return distributeDNS

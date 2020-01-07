@@ -7,7 +7,7 @@ import (
 	"google.golang.org/grpc"
 )
 
-func toString(id *bitset.BitSet) (string, error) {
+func toString(id *bitset.BitSet) string {
 	var ret string
 	for i := uint(0); i < id.Len(); i++ {
 		if data := id.Test(i); data {
@@ -16,7 +16,7 @@ func toString(id *bitset.BitSet) (string, error) {
 			ret += "0"
 		}
 	}
-	return ret, nil
+	return ret
 }
 
 func toBitArr(id string) *bitset.BitSet {
