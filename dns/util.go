@@ -1,8 +1,10 @@
 package dns
 
 import (
+	mygrpc "distributed-dns/grpc"
 	"github.com/willf/bitset"
 	"golang.org/x/crypto/ripemd160"
+	"google.golang.org/grpc"
 )
 
 func toString(id *bitset.BitSet) (string, error) {
@@ -46,4 +48,45 @@ func calculateHash(raw string) (*bitset.BitSet, error) {
 		}
 	}
 	return ret, nil
+}
+
+func dialGrpc(addr string) (mygrpc.KademilaClient, error) {
+	conn, err := grpc.Dial(addr, grpc.WithInsecure())
+	if err != nil {
+		return nil, err
+	}
+	return mygrpc.NewKademilaClient(conn), nil
+}
+
+// compare 计算a、b分别和target之间的距离远近
+// 如果a更近，返回-1；b更近返回1；一样近返回0
+func compare(target, a, b string) int {
+	if !(len(a) == len(b) && len(a) == len(target)) {
+		return -2
+	}
+	a = xor(a, target)
+	b = xor(b, target)
+	for i := range a {
+		if a[i] > b[i] {
+			return 1
+		} else if a[i] < b[i] {
+			return -1
+		}
+	}
+	return 0
+}
+
+func xor(a, b string) string {
+	ret := ""
+	if len(a) != len(b) {
+		return ""
+	}
+	for i := range a {
+		if a[i] == b[i] {
+			ret += "0"
+		} else {
+			ret += "1"
+		}
+	}
+	return ret
 }
