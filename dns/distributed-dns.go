@@ -1,6 +1,8 @@
 package dns
 
 import (
+	"sync"
+
 	"github.com/Workiva/go-datastructures/queue"
 	"github.com/willf/bitset"
 )
@@ -18,3 +20,6 @@ type DistributeDNS struct {
 	// data 存储路由信息
 	data map[string]string
 }
+
+var distributeDNS DistributeDNS
+var once sync.Once
