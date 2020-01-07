@@ -18,12 +18,12 @@ func (d DistributeDNS) FindNode(ctx context.Context, req *grpc.FindNodesRequest)
 	// 被动添加请求节点到k桶中
 	d.AddNode(toBitArr(req.GetFromNodeID()), req.GetFromAccess())
 	var ret grpc.FindNodesResponse
-	lcp, err := d.GetLCP(toBitArr(req.GetNodeID()))
+	nodes, err := d.GetNodes(req.GetNodeID())
 	if err != nil {
 		log.Println(err)
-		return &ret, errors.New("服务器内部错误")
+		return &grpc.FindNodesResponse{}, errors.New("服务器内部错误")
 	}
-	for k, v := range d.routeTable[lcp] {
+	for k, v := range nodes {
 		ret.Nodes = append(ret.Nodes, &grpc.Node{
 			NodeID: k,
 			Access: v,
