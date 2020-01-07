@@ -4,7 +4,7 @@ import "testing"
 
 import "fmt"
 
-func Test_calculateHash(t *testing.T) {
+func Test_CalculateHash(t *testing.T) {
 	type args struct {
 		raw string
 	}
@@ -21,7 +21,7 @@ func Test_calculateHash(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fmt.Println(calculateHash(tt.args.raw))
+			fmt.Println(CalculateHash(tt.args.raw))
 		})
 	}
 }

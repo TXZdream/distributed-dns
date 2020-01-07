@@ -16,7 +16,7 @@ func (d DistributeDNS) Ping(ctx context.Context, req *grpc.Empty) (*grpc.Empty, 
 // FindNode 找到接收者离请求id更近的K个节点
 func (d DistributeDNS) FindNode(ctx context.Context, req *grpc.FindNodesRequest) (*grpc.FindNodesResponse, error) {
 	// 被动添加请求节点到k桶中
-	d.AddNode(toBitArr(req.GetFromNodeID()), req.GetFromAccess())
+	d.AddNode(ToBitArr(req.GetFromNodeID()), req.GetFromAccess())
 	var ret grpc.FindNodesResponse
 	nodes, err := d.GetNodes(req.GetNodeID())
 	if err != nil {
@@ -35,7 +35,7 @@ func (d DistributeDNS) FindNode(ctx context.Context, req *grpc.FindNodesRequest)
 // FindValue 查询key值
 func (d DistributeDNS) FindValue(ctx context.Context, req *grpc.FindValueRequest) (*grpc.FindValueResponse, error) {
 	// 被动添加请求节点到k桶中
-	d.AddNode(toBitArr(req.GetFromNodeID()), req.GetFromAccess())
+	d.AddNode(ToBitArr(req.GetFromNodeID()), req.GetFromAccess())
 	has, v := d.GetData(req.GetKey())
 	ret := grpc.FindValueResponse{
 		Has:   has,
@@ -43,7 +43,7 @@ func (d DistributeDNS) FindValue(ctx context.Context, req *grpc.FindValueRequest
 	}
 	// 返回最近的K个节点
 	if !has {
-		keyID, err := calculateHash(req.GetKey())
+		keyID, err := CalculateHash(req.GetKey())
 		if err != nil {
 			log.Println(err)
 			return &grpc.FindValueResponse{}, errors.New("服务器内部错误")

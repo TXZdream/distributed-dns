@@ -31,7 +31,7 @@ var once sync.Once
 // Init 初始化当前节点，并通过已知信息加入/创建一个已知集群
 // id代表当前节点的id号
 // other代表另外一个已知集群中某个节点的访问地址，若为空，则不加入其他集群
-func Init(k uint16, id *bitset.BitSet, other string) kademlia.Kademlia {
+func Init(k uint16, id *bitset.BitSet, access, other string) kademlia.Kademlia {
 	once.Do(func() {
 		distributeDNS.k = k
 		distributeDNS.id = id
@@ -40,6 +40,7 @@ func Init(k uint16, id *bitset.BitSet, other string) kademlia.Kademlia {
 		}
 		distributeDNS.routeTable = make([]map[string]string, k)
 		distributeDNS.data = make(map[string]string)
+		distributeDNS.access = access
 		// 加入已知节点
 		if other != "" {
 			nodes, err := distributeDNS.GetNodesRecursive(toString(id))
@@ -47,7 +48,7 @@ func Init(k uint16, id *bitset.BitSet, other string) kademlia.Kademlia {
 				log.Println(err)
 			} else {
 				for k, v := range nodes {
-					distributeDNS.AddNode(toBitArr(k), v)
+					distributeDNS.AddNode(ToBitArr(k), v)
 				}
 			}
 		}

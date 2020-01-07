@@ -31,7 +31,7 @@ func (d DistributeDNS) AddNode(id *bitset.BitSet, data string) error {
 	})
 	// 添加路由表项
 	if remove != "" {
-		removedID := toBitArr(remove)
+		removedID := ToBitArr(remove)
 		if removeLCP, err := d.GetLCP(removedID); err != nil {
 			return err
 		} else {
@@ -47,7 +47,7 @@ func (d DistributeDNS) AddNode(id *bitset.BitSet, data string) error {
 
 // DeleteNode 删除一个节点
 func (d DistributeDNS) DeleteNode(id string) error {
-	lcp, err := d.GetLCP(toBitArr(id))
+	lcp, err := d.GetLCP(ToBitArr(id))
 	if err != nil {
 		return err
 	}
@@ -97,7 +97,7 @@ func (d DistributeDNS) GetData(key string) (bool, string) {
 
 // GetNodes 返回当前节点的路由表中距离给定id最近的k个id
 func (d DistributeDNS) GetNodes(id string) (map[string]string, error) {
-	lcp, err := d.GetLCP(toBitArr(id))
+	lcp, err := d.GetLCP(ToBitArr(id))
 	if err != nil {
 		return nil, err
 	}
@@ -156,7 +156,7 @@ func (d DistributeDNS) Update() {
 	}
 	// 将key-value对传播到其他节点
 	for k, v := range d.data {
-		hashKey, _ := calculateHash(k)
+		hashKey, _ := CalculateHash(k)
 		nodes, _ := d.GetNodesRecursive(toString(hashKey))
 		for _, node := range nodes {
 			client, err := dialGrpc(node)
@@ -180,7 +180,7 @@ func (d DistributeDNS) GetDataRecursive(key string) (bool, string, error) {
 	if has, value := d.GetData(key); has {
 		return true, value, nil
 	}
-	hashKey, err := calculateHash(key)
+	hashKey, err := CalculateHash(key)
 	if err != nil {
 		return false, "", err
 	}

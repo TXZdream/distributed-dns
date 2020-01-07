@@ -19,7 +19,7 @@ func toString(id *bitset.BitSet) string {
 	return ret
 }
 
-func toBitArr(id string) *bitset.BitSet {
+func ToBitArr(id string) *bitset.BitSet {
 	ret := bitset.New(uint(len(id)))
 	for i, v := range id {
 		if v == '0' {
@@ -31,7 +31,7 @@ func toBitArr(id string) *bitset.BitSet {
 	return ret
 }
 
-func calculateHash(raw string) (*bitset.BitSet, error) {
+func CalculateHash(raw string) (*bitset.BitSet, error) {
 	rim := ripemd160.New()
 	if _, err := rim.Write([]byte(raw)); err != nil {
 		return nil, err
