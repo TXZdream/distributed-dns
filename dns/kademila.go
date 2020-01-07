@@ -3,6 +3,7 @@ package dns
 import (
 	"context"
 	kademila "distributed-dns/grpc"
+	"distributed-dns/logger"
 	"errors"
 	"time"
 
@@ -11,42 +12,56 @@ import (
 
 // AddNode 添加一个节点到K桶中，data表示这个节点的访问方式
 func (d DistributeDNS) AddNode(id *bitset.BitSet, data string) error {
+	logger.Logger.Sugar().Infow("添加节点",
+		"id", id.Bytes(),
+		"access", data,
+	)
+	if toString(id) == toString(d.id) {
+		return nil
+	}
 	lcp, err := d.GetLCP(id)
 	if err != nil {
 		return err
 	}
 	strID := toString(id)
 	// 更新accessQueue
-	var remove string
 	if d.accessQueue[lcp].Len() >= int(d.k) {
 		items, err := d.accessQueue[lcp].Get(1)
 		if err != nil {
 			return err
 		}
-		remove = items[0].(Item).ID
-	}
-	d.accessQueue[lcp].Put(Item{
-		ID:        strID,
-		Timestamp: time.Now().Unix(),
-	})
-	// 添加路由表项
-	if remove != "" {
-		removedID := ToBitArr(remove)
-		if removeLCP, err := d.GetLCP(removedID); err != nil {
-			return err
-		} else {
-			delete(d.routeTable[removeLCP], remove)
+		// 若最早的节点无响应则删除
+		client, err := dialGrpc(d.routeTable[lcp][items[0].(Item).ID])
+		if err != nil {
+			d.DeleteNode(items[0].(Item).ID)
 		}
+		_, err = client.Ping(context.Background(), &kademila.Empty{})
+		if err != nil {
+			d.DeleteNode(items[0].(Item).ID)
+		}
+		// 若有响应则忽视添加节点的请求
+		d.accessQueue[lcp].Put(Item{
+			ID:        items[0].(Item).ID,
+			Timestamp: time.Now().Unix(),
+		})
+	} else {
+		d.accessQueue[lcp].Put(Item{
+			ID:        strID,
+			Timestamp: time.Now().Unix(),
+		})
+		if d.routeTable[lcp] == nil {
+			d.routeTable[lcp] = make(map[string]string)
+		}
+		d.routeTable[lcp][strID] = data
 	}
-	if d.routeTable[lcp] == nil {
-		d.routeTable[lcp] = make(map[string]string)
-	}
-	d.routeTable[lcp][strID] = data
 	return nil
 }
 
 // DeleteNode 删除一个节点
 func (d DistributeDNS) DeleteNode(id string) error {
+	logger.Logger.Sugar().Infow("删除节点",
+		"id", ToBitArr(id).Bytes(),
+	)
 	lcp, err := d.GetLCP(ToBitArr(id))
 	if err != nil {
 		return err
@@ -86,11 +101,18 @@ func (d DistributeDNS) GetLCP(target *bitset.BitSet) (uint8, error) {
 
 // AddData 添加一组数据到当前节点
 func (d DistributeDNS) AddData(key, value string) {
+	logger.Logger.Sugar().Infow("向当前节点添加值",
+		"key", key,
+		"value", value,
+	)
 	d.data[key] = value
 }
 
 // GetData 在集群中获取指定key的值
 func (d DistributeDNS) GetData(key string) (bool, string) {
+	logger.Logger.Sugar().Infow("从当前节点获取值",
+		"key", key,
+	)
 	value, ok := d.data[key]
 	return ok, value
 }
@@ -101,39 +123,33 @@ func (d DistributeDNS) GetNodes(id string) (map[string]string, error) {
 	if err != nil {
 		return nil, err
 	}
+	logger.Logger.Sugar().Infow("从当前节点获取与目标最接近的k个节点",
+		"k", d.k,
+		"target", ToBitArr(id).Bytes(),
+		"lcp", lcp,
+	)
 	ret := make(map[string]string)
-	index := lcp
+	around := 0
+	if int(lcp) == int(d.id.Len()) {
+		around = 1
+	}
 	for {
-		if index < 0 || index >= uint8(d.id.Len()) || len(ret) >= int(d.k) {
+		if int(lcp)-around < 0 && int(lcp)+around >= int(d.id.Len()) || len(ret) >= int(d.k) {
 			break
 		}
-		count := int(d.k) - len(ret)
-		for k, v := range d.routeTable[lcp] {
-			ret[k] = v
-			if count--; count == 0 {
-				break
+		index := int(lcp) - around
+		if index >= 0 {
+			for k, v := range d.routeTable[index] {
+				ret[k] = v
 			}
 		}
-		// 计算下一个index的值
-		if index > lcp {
-			if 2*lcp-index < 0 {
-				index++
-			} else {
-				index = 2*lcp - index
-			}
-		} else if index == lcp {
-			if lcp == 0 {
-				index++
-			} else {
-				index--
-			}
-		} else {
-			if 2*lcp-index >= uint8(d.id.Len()) {
-				index--
-			} else {
-				index = 2*lcp - index
+		index = int(lcp) + around
+		if index < int(d.id.Len()) && around != 0 {
+			for k, v := range d.routeTable[index] {
+				ret[k] = v
 			}
 		}
+		around++
 	}
 	return ret, nil
 }
@@ -141,6 +157,7 @@ func (d DistributeDNS) GetNodes(id string) (map[string]string, error) {
 // Update 定期将自己的key-value对复制到其他的列表上
 // 发出ping请求，将过期节点下线
 func (d DistributeDNS) Update() {
+	logger.Logger.Sugar().Info("定时更新")
 	// 找到过期节点
 	for _, v := range d.routeTable {
 		for k1, v1 := range v {
@@ -158,7 +175,7 @@ func (d DistributeDNS) Update() {
 	for k, v := range d.data {
 		hashKey, _ := CalculateHash(k)
 		nodes, _ := d.GetNodesRecursive(toString(hashKey))
-		for _, node := range nodes {
+		for id, node := range nodes {
 			client, err := dialGrpc(node)
 			if err != nil {
 				d.DeleteNode(node)
@@ -171,12 +188,21 @@ func (d DistributeDNS) Update() {
 			if err != nil {
 				d.DeleteNode(node)
 			}
+			logger.Logger.Sugar().Infow("传播键值对",
+				"key", k,
+				"value", v,
+				"targetID", ToBitArr(id).Bytes(),
+				"targetAccess", node,
+			)
 		}
 	}
 }
 
 // GetDataRecursive 递归查询key所对应的value值
 func (d DistributeDNS) GetDataRecursive(key string) (bool, string, error) {
+	logger.Logger.Sugar().Infow("从集群中获取值",
+		"key", key,
+	)
 	if has, value := d.GetData(key); has {
 		return true, value, nil
 	}
@@ -210,6 +236,10 @@ func (d DistributeDNS) GetDataRecursive(key string) (bool, string, error) {
 
 // GetNodesRecursive 递归获取距离给定id最近的k个节点
 func (d DistributeDNS) GetNodesRecursive(id string) (map[string]string, error) {
+	logger.Logger.Sugar().Infow("从集群中获取与目标最接近的k个节点",
+		"k", d.k,
+		"target", ToBitArr(id).Bytes(),
+	)
 	nodes, err := d.GetNodes(id)
 	if err != nil {
 		return nil, err
@@ -223,13 +253,15 @@ func (d DistributeDNS) GetNodesRecursive(id string) (map[string]string, error) {
 		for k, v := range nodes {
 			raw[k] = v
 		}
-		for k, v := range nodes {
+		// 对本地获得的k个最近的节点，分别发送请求以获取值
+		for k, v := range raw {
 			if isVisited[k] {
 				continue
 			}
 			client, err := dialGrpc(v)
 			if err != nil {
 				d.DeleteNode(k)
+				continue
 			}
 			res, err := client.FindNode(context.Background(), &kademila.FindNodesRequest{
 				NodeID:     id,
@@ -238,13 +270,17 @@ func (d DistributeDNS) GetNodesRecursive(id string) (map[string]string, error) {
 			})
 			if err != nil {
 				d.DeleteNode(k)
+				continue
 			}
 			for _, node := range res.GetNodes() {
 				nodes[node.GetNodeID()] = node.GetAccess()
 			}
 			isVisited[k] = true
-			// 筛选出最近的前k个节点
+			// 筛选出逻辑距离最小的前k个节点
 			if len(nodes) <= int(d.k) {
+				if len(nodes) > len(raw) {
+					isChanged = true
+				}
 				continue
 			}
 			keys := make([]string, len(nodes))

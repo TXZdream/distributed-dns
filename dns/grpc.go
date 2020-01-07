@@ -6,15 +6,25 @@ import (
 	"log"
 
 	grpc "distributed-dns/grpc"
+	"distributed-dns/logger"
 )
 
 // Ping 一个节点
-func (d *DistributeDNS) Ping(ctx context.Context, req *grpc.Empty) (*grpc.Empty, error) {
-	return &grpc.Empty{}, nil
+func (d *DistributeDNS) Ping(ctx context.Context, req *grpc.Empty) (*grpc.Node, error) {
+	logger.Logger.Sugar().Infow("收到Ping请求")
+	return &grpc.Node{
+		NodeID: toString(d.id),
+		Access: d.access,
+	}, nil
 }
 
 // FindNode 找到接收者离请求id更近的K个节点
 func (d *DistributeDNS) FindNode(ctx context.Context, req *grpc.FindNodesRequest) (*grpc.FindNodesResponse, error) {
+	logger.Logger.Sugar().Infow("收到查找节点请求",
+		"target", ToBitArr(req.GetNodeID()).Bytes(),
+		"from", ToBitArr(req.GetFromNodeID()).Bytes(),
+		"fromAccess", req.GetFromAccess(),
+	)
 	// 被动添加请求节点到k桶中
 	d.AddNode(ToBitArr(req.GetFromNodeID()), req.GetFromAccess())
 	var ret grpc.FindNodesResponse
@@ -34,6 +44,11 @@ func (d *DistributeDNS) FindNode(ctx context.Context, req *grpc.FindNodesRequest
 
 // FindValue 查询key值
 func (d *DistributeDNS) FindValue(ctx context.Context, req *grpc.FindValueRequest) (*grpc.FindValueResponse, error) {
+	logger.Logger.Sugar().Infow("收到查找值请求",
+		"key", req.GetKey(),
+		"from", ToBitArr(req.GetFromNodeID()).Bytes(),
+		"fromAccess", req.GetFromAccess(),
+	)
 	// 被动添加请求节点到k桶中
 	d.AddNode(ToBitArr(req.GetFromNodeID()), req.GetFromAccess())
 	has, v := d.GetData(req.GetKey())
@@ -65,6 +80,10 @@ func (d *DistributeDNS) FindValue(ctx context.Context, req *grpc.FindValueReques
 
 // Store 在该节点上存储数据
 func (d *DistributeDNS) Store(ctx context.Context, req *grpc.StoreRequest) (*grpc.Empty, error) {
+	logger.Logger.Sugar().Infow("收到存储请求",
+		"key", req.GetKey(),
+		"value", req.GetValue(),
+	)
 	d.AddData(req.GetKey(), req.GetValue())
 	return &grpc.Empty{}, nil
 }

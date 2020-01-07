@@ -1,8 +1,10 @@
 package dns
 
 import (
+	"context"
+	kademila "distributed-dns/grpc"
 	"distributed-dns/kademlia"
-	"log"
+	"distributed-dns/logger"
 	"sync"
 
 	"github.com/Workiva/go-datastructures/queue"
@@ -38,17 +40,31 @@ func Init(k uint16, id *bitset.BitSet, access, other string) kademlia.Kademlia {
 		for i := uint(0); i < distributeDNS.id.Len(); i++ {
 			distributeDNS.accessQueue = append(distributeDNS.accessQueue, *queue.NewPriorityQueue(int(k), false))
 		}
-		distributeDNS.routeTable = make([]map[string]string, k)
+		distributeDNS.routeTable = make([]map[string]string, id.Len())
 		distributeDNS.data = make(map[string]string)
 		distributeDNS.access = access
+		logger.Logger.Sugar().Infow("节点完成初始化",
+			"id", id.Bytes(),
+		)
 		// 加入已知节点
 		if other != "" {
-			nodes, err := distributeDNS.GetNodesRecursive(toString(id))
-			if err != nil {
-				log.Println(err)
+			if client, err := dialGrpc(other); err != nil {
+				logger.Logger.Sugar().Info("无法加入已知节点", err)
 			} else {
-				for k, v := range nodes {
-					distributeDNS.AddNode(ToBitArr(k), v)
+				if res, err := client.Ping(context.Background(), &kademila.Empty{}); err != nil {
+					logger.Logger.Sugar().Info("无法加入已知节点", err)
+				} else {
+					if err = distributeDNS.AddNode(ToBitArr(res.GetNodeID()), res.GetAccess()); err != nil {
+						logger.Logger.Sugar().Info("无法加入已知节点", err)
+					} else {
+						if nodes, err := distributeDNS.GetNodesRecursive(toString(id)); err != nil {
+							logger.Logger.Sugar().Info("无法加入已知节点", err)
+						} else {
+							for k, v := range nodes {
+								distributeDNS.AddNode(ToBitArr(k), v)
+							}
+						}
+					}
 				}
 			}
 		}

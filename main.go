@@ -2,6 +2,7 @@ package main
 
 import (
 	"distributed-dns/dns"
+	"distributed-dns/logger"
 	"fmt"
 	"log"
 	"net"
@@ -11,6 +12,9 @@ import (
 	"google.golang.org/grpc"
 
 	mygrpc "distributed-dns/grpc"
+
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	uuid "github.com/satori/go.uuid"
 )
 
@@ -24,13 +28,15 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	k := 3
+	k := 8
 	kad := dns.Init(uint16(k), id, *access, *otherNodeAccess)
 	// 每隔3分钟进行一次更新
 	go func() {
-		updateInterval := time.Duration(3)
-		kad.Update()
-		time.Sleep(updateInterval * time.Minute)
+		for {
+			updateInterval := time.Duration(3)
+			kad.Update()
+			time.Sleep(updateInterval * time.Second)
+		}
 	}()
 	// 启动grpc服务器
 	lis, err := net.Listen("tcp", fmt.Sprintf("%v", *access))
@@ -38,7 +44,18 @@ func main() {
 		log.Fatalf("failed to listen grpc: %v", err)
 	}
 	log.Printf("Listening on: %s", *access)
-	gs := grpc.NewServer()
+	// 添加grpc日志
+	defer logger.Logger.Sync()
+	gs := grpc.NewServer(
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			// grpc_zap.StreamServerInterceptor(logger.Logger),
+			grpc_recovery.StreamServerInterceptor(),
+		)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			// grpc_zap.UnaryServerInterceptor(logger.Logger),
+			grpc_recovery.UnaryServerInterceptor(),
+		)),
+	)
 	ddns := kad.(dns.DistributeDNS)
 	mygrpc.RegisterKademilaServer(gs, &ddns)
 	gs.Serve(lis)
