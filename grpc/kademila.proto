@@ -2,11 +2,11 @@ syntax = "proto3";
 package kademila;
 
 service Kademila {
-    rpc Ping (Empty) returns (Empty);
-    // 找到接收者离请求id更近的K个节点
+    rpc Ping (Empty) returns (Node);
+    // 返回离id更近的K个节点
     rpc FindNode (FindNodesRequest) returns (FindNodesResponse);
-    // 查询key值
-    rpc FindValue (FindNodesRequest) returns (Node);
+    // 查询key值，若找到直接返回，找不到则返回最近的K个节点
+    rpc FindValue (FindValueRequest) returns (FindValueResponse);
     rpc Store (StoreRequest) returns (Empty);
 }
 
@@ -14,6 +14,8 @@ message Empty {}
 
 message FindNodesRequest {
     string NodeID = 1;
+    string FromNodeID = 2;
+    string FromAccess = 3;
 }
 
 message FindNodesResponse {
@@ -28,11 +30,14 @@ message Node {
 
 message FindValueRequest {
     string Key = 1;
+    string FromNodeID = 2;
+    string FromAccess = 3;
 }
 
 message FindValueResponse {
-    bool Had = 1;
+    bool Has = 1;
     string Value = 2;
+    repeated Node Nodes = 3;
 }
 
 message StoreRequest {
