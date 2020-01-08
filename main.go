@@ -13,6 +13,8 @@ import (
 
 	mygrpc "distributed-dns/grpc"
 
+	"distributed-dns/server/dnsUdp"
+
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 	uuid "github.com/satori/go.uuid"
@@ -57,6 +59,8 @@ func main() {
 		)),
 	)
 	ddns := kad.(dns.DistributeDNS)
+	// 启动监听udp的53端口
+	dnsUdp.Start(ddns)
 	mygrpc.RegisterKademilaServer(gs, &ddns)
 	gs.Serve(lis)
 }
