@@ -6,7 +6,8 @@ import (
 	"distributed-dns/logger"
 	"errors"
 	"time"
-
+	"strings"
+	"strconv"
 	"github.com/willf/bitset"
 )
 
@@ -101,11 +102,55 @@ func (d DistributeDNS) GetLCP(target *bitset.BitSet) (uint8, error) {
 
 // AddData 添加一组数据到当前节点
 func (d DistributeDNS) AddData(key, value string) {
-	logger.Logger.Sugar().Infow("向当前节点添加值",
+	logger.Logger.Sugar().Infow("向当前节点添加或更新值",
 		"key", key,
 		"value", value,
 	)
+	value, ok := d.data[key]
+	if ok == false {
+		d.data[key] = value
+	} else {
+	    num := strings.Index(value, "@")
+	    reqTime := value[num+1 : len(value)]
+		reqTimeInt64, _ := strconv.ParseInt(reqTime, 10, 64)
+
+		num = strings.Index(d.data[key] ,"@")
+		originTime := d.data[key][num+1 : len(value)]
+		originTimeInt64, _ := strconv.ParseInt(originTime, 10, 64)
+		if reqTimeInt64 > originTimeInt64 {
+			d.data[key] = value
+		} else {
+			return
+		}
+	}
+}
+
+// PutData 更新当期节点的数据
+func (d DistributeDNS) PutData(key, value string) (bool, string) {
+	logger.Logger.Sugar().Infow("向当前节点更新值",
+		"key", key,
+		"value", value,
+	)
+	value, ok := d.data[key]
+	if ok == false {
+		return ok, value
+	}
 	d.data[key] = value
+	return ok, value
+}
+
+// DeleteData 删除当期节点的指定数据
+func (d DistributeDNS) DeleteData(key string) {
+	logger.Logger.Sugar().Infow("删除当前节点指定数据",
+		"key", key,
+		"value", "",
+	)
+	_, ok := d.data[key]
+	if ok == false {
+		return
+	}
+	delete(d.data, key)
+	return
 }
 
 // GetData 在集群中获取指定key的值

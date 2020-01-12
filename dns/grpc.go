@@ -4,7 +4,8 @@ import (
 	"context"
 	"errors"
 	"log"
-
+	"time"
+	"strconv"
 	grpc "distributed-dns/grpc"
 	"distributed-dns/logger"
 )
@@ -84,6 +85,14 @@ func (d *DistributeDNS) Store(ctx context.Context, req *grpc.StoreRequest) (*grp
 		"key", req.GetKey(),
 		"value", req.GetValue(),
 	)
-	d.AddData(req.GetKey(), req.GetValue())
+	// 如果value为空代表删除操作
+	if req.GetValue() == "" {
+		d.DeleteData(req.GetKey())
+	}
+	t := time.Now().Unix()
+	s := strconv.FormatInt(t, 10)
+	value := req.GetValue()+"@"+s
+	// AddData根据时间戳来操作
+	d.AddData(req.GetKey(), value)
 	return &grpc.Empty{}, nil
 }
