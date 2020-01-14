@@ -3,7 +3,6 @@ package dnsUdp
 import (
 	"bytes"
 	"encoding/binary"
-	"fmt"
 	"log"
 	"net"
 	"strconv"
@@ -110,38 +109,29 @@ func (s *DNSService) Listen() {
 // Query lookup answers for DNS message.
 func (s *DNSService) Query(p Packet) {
 	q := p.message.Questions[0]
-	qStr := quesToString(q)
+	// qStr := quesToString(q)
 	s.dns.RtLock.Lock()
 	defer s.dns.RtLock.Unlock()
 	s.dns.DataLock.Lock()
 	defer s.dns.DataLock.Unlock()
 	// 根据域名寻找ip
-	ok, ip := s.dns.GetData(qStr)
-	fmt.Println(ip)
-	if ok == false {
-		// 如果没找到则返回相关节点
-		ok, ip, err := s.dns.GetDataRecursive(qStr)
-		if err != nil {
-			p.message.Header.RCode = 2 // RCodeServerFailure RCode = 2
-			go sendPacket(s.conn, p.message, p.addr)
-			return
-		}
-		if ok == false {
-			p.message.Header.RCode = 3 // RCodeNameError RCode = 3
-			go sendPacket(s.conn, p.message, p.addr)
-			return
-		}
-		p.message.Header.RCode = 0 // RCodeSuccess RCode = 0
-		resource := generateAnswerMsg(ip, qStr)
-		p.message.Answers = append(p.message.Answers, resource)
+	ok, ip, err := s.dns.GetDataRecursive(q.Name.String()[0 : len(q.Name.String())-1])
+	if err != nil {
+		log.Println(err)
+		p.message.Header.RCode = 2 // RCodeServerFailure RCode = 2
 		go sendPacket(s.conn, p.message, p.addr)
-	} else {
-		// 这里需要完成Answers
-		p.message.Header.RCode = 0 // RCodeSuccess RCode = 0
-		resource := generateAnswerMsg(ip, qStr)
-		p.message.Answers = append(p.message.Answers, resource)
-		go sendPacket(s.conn, p.message, p.addr)
+		return
 	}
+	if ok == false {
+		p.message.Header.RCode = 3 // RCodeNameError RCode = 3
+		go sendPacket(s.conn, p.message, p.addr)
+		return
+	}
+	// 这里需要完成Answers
+	p.message.Header.RCode = 0 // RCodeSuccess RCode = 0
+	resource := generateAnswerMsg(ip, q.Name.String())
+	p.message.Answers = append(p.message.Answers, resource)
+	go sendPacket(s.conn, p.message, p.addr)
 }
 
 func sendPacket(conn *net.UDPConn, message dnsmessage.Message, addr net.UDPAddr) {

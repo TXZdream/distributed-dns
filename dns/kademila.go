@@ -107,7 +107,7 @@ func (d *DistributeDNS) AddData(key, value string) {
 		"key", key,
 		"value", value,
 	)
-	value, ok := d.data[key]
+	_, ok := d.data[key]
 	if ok == false {
 		d.data[key] = value
 	} else {

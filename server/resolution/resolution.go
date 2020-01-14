@@ -12,6 +12,7 @@ func FindIpAddrOfDomain(domainName string) (error, string) {
 
 // 已经过测试，可用
 func Ipv4ToArr(ipAddr string) [4]int {
+	ipAddr = strings.Split(ipAddr, "@")[0]
 	var ipArr [4]int
 	s := strings.Split(ipAddr, ".")
 	for i := 0; i < 4; i++ {

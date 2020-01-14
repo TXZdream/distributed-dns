@@ -101,6 +101,7 @@ func (d *DistributeDNS) Store(ctx context.Context, req *grpc.StoreRequest) (*grp
 	// 如果value为空代表删除操作
 	if req.GetValue() == "" {
 		d.DeleteData(req.GetKey())
+		return &grpc.Empty{}, nil
 	}
 	t := time.Now().Unix()
 	s := strconv.FormatInt(t, 10)

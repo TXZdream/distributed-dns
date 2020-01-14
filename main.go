@@ -35,7 +35,7 @@ func main() {
 	// 每隔3分钟进行一次更新
 	go func() {
 		for {
-			updateInterval := time.Duration(1)
+			updateInterval := time.Duration(3)
 			kad.Update()
 			time.Sleep(updateInterval * time.Second)
 		}
