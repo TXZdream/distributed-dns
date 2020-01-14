@@ -1,9 +1,9 @@
 package main
 
 import (
+	"fmt"
 	"github.com/txzdream/distributed-dns/dns"
 	"github.com/txzdream/distributed-dns/logger"
-	"fmt"
 	"log"
 	"net"
 	"time"
@@ -35,7 +35,7 @@ func main() {
 	// 每隔3分钟进行一次更新
 	go func() {
 		for {
-			updateInterval := time.Duration(3)
+			updateInterval := time.Duration(1)
 			kad.Update()
 			time.Sleep(updateInterval * time.Second)
 		}
@@ -58,9 +58,9 @@ func main() {
 			grpc_recovery.UnaryServerInterceptor(),
 		)),
 	)
-	ddns := kad.(dns.DistributeDNS)
+	ddns := kad.(*dns.DistributeDNS)
 	// 启动监听udp的53端口
 	dnsUdp.Start(ddns)
-	mygrpc.RegisterKademilaServer(gs, &ddns)
+	mygrpc.RegisterKademilaServer(gs, ddns)
 	gs.Serve(lis)
 }

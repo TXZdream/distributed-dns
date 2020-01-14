@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"log"
-	"time"
 	"strconv"
+	"time"
+
 	grpc "github.com/txzdream/distributed-dns/grpc"
 	"github.com/txzdream/distributed-dns/logger"
 )
@@ -26,6 +27,10 @@ func (d *DistributeDNS) FindNode(ctx context.Context, req *grpc.FindNodesRequest
 		"from", ToBitArr(req.GetFromNodeID()).Bytes(),
 		"fromAccess", req.GetFromAccess(),
 	)
+	d.RtLock.Lock()
+	defer d.RtLock.Unlock()
+	d.DataLock.Lock()
+	defer d.DataLock.Unlock()
 	// 被动添加请求节点到k桶中
 	d.AddNode(ToBitArr(req.GetFromNodeID()), req.GetFromAccess())
 	var ret grpc.FindNodesResponse
@@ -50,6 +55,10 @@ func (d *DistributeDNS) FindValue(ctx context.Context, req *grpc.FindValueReques
 		"from", ToBitArr(req.GetFromNodeID()).Bytes(),
 		"fromAccess", req.GetFromAccess(),
 	)
+	d.RtLock.Lock()
+	defer d.RtLock.Unlock()
+	d.DataLock.Lock()
+	defer d.DataLock.Unlock()
 	// 被动添加请求节点到k桶中
 	d.AddNode(ToBitArr(req.GetFromNodeID()), req.GetFromAccess())
 	has, v := d.GetData(req.GetKey())
@@ -85,13 +94,17 @@ func (d *DistributeDNS) Store(ctx context.Context, req *grpc.StoreRequest) (*grp
 		"key", req.GetKey(),
 		"value", req.GetValue(),
 	)
+	d.RtLock.Lock()
+	defer d.RtLock.Unlock()
+	d.DataLock.Lock()
+	defer d.DataLock.Unlock()
 	// 如果value为空代表删除操作
 	if req.GetValue() == "" {
 		d.DeleteData(req.GetKey())
 	}
 	t := time.Now().Unix()
 	s := strconv.FormatInt(t, 10)
-	value := req.GetValue()+"@"+s
+	value := req.GetValue() + "@" + s
 	// AddData根据时间戳来操作
 	d.AddData(req.GetKey(), value)
 	return &grpc.Empty{}, nil

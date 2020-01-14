@@ -2,17 +2,18 @@ package dns
 
 import (
 	"context"
+	"errors"
+	"strconv"
+	"strings"
+	"time"
+
 	kademila "github.com/txzdream/distributed-dns/grpc"
 	"github.com/txzdream/distributed-dns/logger"
-	"errors"
-	"time"
-	"strings"
-	"strconv"
 	"github.com/willf/bitset"
 )
 
 // AddNode 添加一个节点到K桶中，data表示这个节点的访问方式
-func (d DistributeDNS) AddNode(id *bitset.BitSet, data string) error {
+func (d *DistributeDNS) AddNode(id *bitset.BitSet, data string) error {
 	logger.Logger.Sugar().Infow("添加节点",
 		"id", id.Bytes(),
 		"access", data,
@@ -59,7 +60,7 @@ func (d DistributeDNS) AddNode(id *bitset.BitSet, data string) error {
 }
 
 // DeleteNode 删除一个节点
-func (d DistributeDNS) DeleteNode(id string) error {
+func (d *DistributeDNS) DeleteNode(id string) error {
 	logger.Logger.Sugar().Infow("删除节点",
 		"id", ToBitArr(id).Bytes(),
 	)
@@ -83,7 +84,7 @@ func (d DistributeDNS) DeleteNode(id string) error {
 }
 
 // GetLCP 获取a与b之间的最长公共前缀值
-func (d DistributeDNS) GetLCP(target *bitset.BitSet) (uint8, error) {
+func (d *DistributeDNS) GetLCP(target *bitset.BitSet) (uint8, error) {
 	if d.id.Len() != target.Len() {
 		return 0, errors.New("a和b的长度不一致")
 	}
@@ -101,7 +102,7 @@ func (d DistributeDNS) GetLCP(target *bitset.BitSet) (uint8, error) {
 }
 
 // AddData 添加一组数据到当前节点
-func (d DistributeDNS) AddData(key, value string) {
+func (d *DistributeDNS) AddData(key, value string) {
 	logger.Logger.Sugar().Infow("向当前节点添加或更新值",
 		"key", key,
 		"value", value,
@@ -110,11 +111,11 @@ func (d DistributeDNS) AddData(key, value string) {
 	if ok == false {
 		d.data[key] = value
 	} else {
-	    num := strings.Index(value, "@")
-	    reqTime := value[num+1 : len(value)]
+		num := strings.Index(value, "@")
+		reqTime := value[num+1 : len(value)]
 		reqTimeInt64, _ := strconv.ParseInt(reqTime, 10, 64)
 
-		num = strings.Index(d.data[key] ,"@")
+		num = strings.Index(d.data[key], "@")
 		originTime := d.data[key][num+1 : len(value)]
 		originTimeInt64, _ := strconv.ParseInt(originTime, 10, 64)
 		if reqTimeInt64 > originTimeInt64 {
@@ -125,22 +126,8 @@ func (d DistributeDNS) AddData(key, value string) {
 	}
 }
 
-// PutData 更新当期节点的数据
-func (d DistributeDNS) PutData(key, value string) (bool, string) {
-	logger.Logger.Sugar().Infow("向当前节点更新值",
-		"key", key,
-		"value", value,
-	)
-	value, ok := d.data[key]
-	if ok == false {
-		return ok, value
-	}
-	d.data[key] = value
-	return ok, value
-}
-
 // DeleteData 删除当期节点的指定数据
-func (d DistributeDNS) DeleteData(key string) {
+func (d *DistributeDNS) DeleteData(key string) {
 	logger.Logger.Sugar().Infow("删除当前节点指定数据",
 		"key", key,
 		"value", "",
@@ -154,7 +141,7 @@ func (d DistributeDNS) DeleteData(key string) {
 }
 
 // GetData 在集群中获取指定key的值
-func (d DistributeDNS) GetData(key string) (bool, string) {
+func (d *DistributeDNS) GetData(key string) (bool, string) {
 	logger.Logger.Sugar().Infow("从当前节点获取值",
 		"key", key,
 	)
@@ -163,7 +150,7 @@ func (d DistributeDNS) GetData(key string) (bool, string) {
 }
 
 // GetNodes 返回当前节点的路由表中距离给定id最近的k个id
-func (d DistributeDNS) GetNodes(id string) (map[string]string, error) {
+func (d *DistributeDNS) GetNodes(id string) (map[string]string, error) {
 	lcp, err := d.GetLCP(ToBitArr(id))
 	if err != nil {
 		return nil, err
@@ -201,8 +188,12 @@ func (d DistributeDNS) GetNodes(id string) (map[string]string, error) {
 
 // Update 定期将自己的key-value对复制到其他的列表上
 // 发出ping请求，将过期节点下线
-func (d DistributeDNS) Update() {
+func (d *DistributeDNS) Update() {
 	logger.Logger.Sugar().Info("定时更新")
+	d.RtLock.Lock()
+	defer d.RtLock.Unlock()
+	d.DataLock.Lock()
+	defer d.DataLock.Unlock()
 	// 找到过期节点
 	for _, v := range d.routeTable {
 		for k1, v1 := range v {
@@ -244,7 +235,7 @@ func (d DistributeDNS) Update() {
 }
 
 // GetDataRecursive 递归查询key所对应的value值
-func (d DistributeDNS) GetDataRecursive(key string) (bool, string, error) {
+func (d *DistributeDNS) GetDataRecursive(key string) (bool, string, error) {
 	logger.Logger.Sugar().Infow("从集群中获取值",
 		"key", key,
 	)
@@ -280,7 +271,7 @@ func (d DistributeDNS) GetDataRecursive(key string) (bool, string, error) {
 }
 
 // GetNodesRecursive 递归获取距离给定id最近的k个节点
-func (d DistributeDNS) GetNodesRecursive(id string) (map[string]string, error) {
+func (d *DistributeDNS) GetNodesRecursive(id string) (map[string]string, error) {
 	logger.Logger.Sugar().Infow("从集群中获取与目标最接近的k个节点",
 		"k", d.k,
 		"target", ToBitArr(id).Bytes(),

@@ -23,8 +23,10 @@ type DistributeDNS struct {
 	k uint16
 	// routeTable 即为k桶
 	routeTable []map[string]string
+	RtLock     sync.Mutex
 	// data 存储路由信息
-	data map[string]string
+	data     map[string]string
+	DataLock sync.Mutex
 }
 
 var distributeDNS DistributeDNS
@@ -41,6 +43,9 @@ func Init(k uint16, id *bitset.BitSet, access, other string) kademlia.Kademlia {
 			distributeDNS.accessQueue = append(distributeDNS.accessQueue, *queue.NewPriorityQueue(int(k), false))
 		}
 		distributeDNS.routeTable = make([]map[string]string, id.Len())
+		for i := range distributeDNS.routeTable {
+			distributeDNS.routeTable[i] = make(map[string]string)
+		}
 		distributeDNS.data = make(map[string]string)
 		distributeDNS.access = access
 		logger.Logger.Sugar().Infow("节点完成初始化",
@@ -69,5 +74,5 @@ func Init(k uint16, id *bitset.BitSet, access, other string) kademlia.Kademlia {
 			}
 		}
 	})
-	return distributeDNS
+	return &distributeDNS
 }
