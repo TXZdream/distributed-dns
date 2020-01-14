@@ -1,8 +1,8 @@
 package main
 
 import (
-	"distributed-dns/dns"
-	"distributed-dns/logger"
+	"github.com/txzdream/distributed-dns/dns"
+	"github.com/txzdream/distributed-dns/logger"
 	"fmt"
 	"log"
 	"net"
@@ -11,9 +11,9 @@ import (
 	flag "github.com/spf13/pflag"
 	"google.golang.org/grpc"
 
-	mygrpc "distributed-dns/grpc"
+	mygrpc "github.com/txzdream/distributed-dns/grpc"
 
-	"distributed-dns/server/dnsUdp"
+	"github.com/txzdream/distributed-dns/server/dnsUdp"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"

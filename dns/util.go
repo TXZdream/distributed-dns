@@ -1,7 +1,7 @@
 package dns
 
 import (
-	mygrpc "distributed-dns/grpc"
+	mygrpc "github.com/txzdream/distributed-dns/grpc"
 	"github.com/willf/bitset"
 	"golang.org/x/crypto/ripemd160"
 	"google.golang.org/grpc"

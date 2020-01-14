@@ -2,9 +2,9 @@ package dns
 
 import (
 	"context"
-	kademila "distributed-dns/grpc"
-	"distributed-dns/kademlia"
-	"distributed-dns/logger"
+	kademila "github.com/txzdream/distributed-dns/grpc"
+	"github.com/txzdream/distributed-dns/kademlia"
+	"github.com/txzdream/distributed-dns/logger"
 	"sync"
 
 	"github.com/Workiva/go-datastructures/queue"

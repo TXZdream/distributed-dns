@@ -2,8 +2,8 @@ package dns
 
 import (
 	"context"
-	kademila "distributed-dns/grpc"
-	"distributed-dns/logger"
+	kademila "github.com/txzdream/distributed-dns/grpc"
+	"github.com/txzdream/distributed-dns/logger"
 	"errors"
 	"time"
 	"strings"

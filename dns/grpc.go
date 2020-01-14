@@ -6,8 +6,8 @@ import (
 	"log"
 	"time"
 	"strconv"
-	grpc "distributed-dns/grpc"
-	"distributed-dns/logger"
+	grpc "github.com/txzdream/distributed-dns/grpc"
+	"github.com/txzdream/distributed-dns/logger"
 )
 
 // Ping 一个节点
